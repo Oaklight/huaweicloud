@@ -1,6 +1,7 @@
 package huaweicloud
 
 import (
+	"strings"
 	"time"
 
 	"github.com/libdns/libdns"
@@ -37,11 +38,19 @@ type RecordSet struct {
 func (r RecordSet) libdnsRecord(zone string) ([]libdns.Record, error) {
 	var records []libdns.Record
 	for _, record := range r.Records {
+		data := record
+		// Huawei Cloud API returns TXT records with surrounding quotes,
+		// but libdns expects unquoted values. Remove the quotes to ensure
+		// consistency with the values passed to AppendRecords.
+		// See: https://github.com/caddy-dns/huaweicloud/issues/12
+		if r.Type == "TXT" {
+			data = strings.Trim(data, `"`)
+		}
 		rr, err := libdns.RR{
 			Name: libdns.RelativeName(r.Name, zone),
 			TTL:  time.Duration(r.Ttl) * time.Second,
 			Type: r.Type,
-			Data: record,
+			Data: data,
 		}.Parse()
 		if err != nil {
 			return nil, err
